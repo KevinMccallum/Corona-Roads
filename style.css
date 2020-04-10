@@ -1,0 +1,59 @@
+* {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: rgba(148, 245, 152, 0.5);
+}
+
+.title {
+  padding-left: 0;
+  padding-right: 0;
+  margin-left: auto;
+  margin-right: auto;
+  display: block;
+}
+
+.keys {
+  display: flex;
+  flex-direction: row;
+  align-items: baseline;
+  position: absolute;
+  top: 370px;
+}
+
+.wasd {
+  padding-left: 135px;
+}
+
+.arrowspic {
+  padding-left: 920px;
+}
+
+.characters {
+  display: flex;
+  flex-direction: row;
+  align-items: baseline;
+  position: absolute;
+  top: 470px;
+}
+
+.sprite2 {
+  padding-left: 163px;
+}
+
+.sprite1 {
+  width: 75px;
+  height: 100px;
+  padding-left: 972px;
+}
+
+canvas {
+  padding-left: 0;
+  padding-right: 0;
+  margin-left: auto;
+  margin-right: auto;
+  margin-top: 30px;
+  display: block;
+}

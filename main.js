@@ -5,26 +5,23 @@ const images = {
   sprite1: './assets/sprite1.png',
   sprite2: './assets/sprite2.png',
   grass: './assets/grass.png',
-  bg: './assets/froggrtBg2.png',
+  bg: './assets/froggrtBg4.png',
   virus: './assets/coronaRedSmall.png',
   pill: './assets/pill.png',
+  toiletPaper: './assets/toiletPaper.png',
 }
-let grass = new Image()
-grass.src = images.grass
+
+const themeSong = new Audio('./assets/476546__mrthenoronha__platform-game-theme-loop-2.wav')
+const cheer = new Audio('./assets/333404__jayfrosting__cheer-2.wav')
+
+let interval
 const cycleLoopDown = [0, 2]
 const grid = 30
-let attached = null
 let frames = 0
-let randomSpeed = 0
-const totalRows = canvas.height / grid
-const enemies = []
-const leftEnemies = []
-const topLeftEnemies = []
-const topRightEnemies = []
-const topLeftLanes = [360, 360, 360, 420, 420, 420, 480, 480, 480, 540, 540, 540]
-const leftLanes = [90, 90, 90, 150, 150, 150, 210, 210, 210, 270, 270, 270]
-const topRightLanes = [330, 330, 330, 330, 390, 390, 390, 390, 390, 450, 450, 450, 510, 510, 510]
-const lanes = [60, 60, 60, 120, 120, 120, 180, 180, 180, 240, 240, 240]
+const viruses = []
+const pills = []
+let onPill = false
+let lives = []
 
 // SQUARE CLASS
 class Background {
@@ -65,12 +62,10 @@ class Square {
 class Person extends Square {
   constructor(x, y, width, height, type) {
     super(x, y, width, height)
+    this.jump = new Audio('./assets/350905__cabled-mess__jump-c-05.wav')
     this.audio = new Audio('./assets/Untitled-[AudioTrimmer.com] (1).mp3')
     this.imgSprite1 = new Image()
     this.imgSprite1.src = './assets/sprite1.png'
-    // imgSprite1.onload = function () {
-    //   init()
-    // }
     this.imgSprite2 = new Image()
     this.imgSprite2.src = './assets/sprite2.png'
     this.type = type
@@ -79,6 +74,7 @@ class Person extends Square {
     this.position = 0
     this.animate2 = 0
     this.position2 = 0
+    this.lives = 3
   }
 
   drawPerson() {
@@ -94,8 +90,6 @@ class Person extends Square {
         grid - 1,
         grid - 1
       )
-      // context.fillStyle = 'green'
-      // context.fillRect(this.x, this.y, this.width, this.height)
     } else if (this.type === 'sprite2') {
       context.drawImage(
         this.imgSprite2,
@@ -115,117 +109,124 @@ class Person extends Square {
     this.y -= grid
     this.animate = 2
     this.position = 3
+    this.jump.play()
   }
 
   moveDown() {
     this.y += grid
     this.animate = 2
     this.position = 0
+    this.jump.play()
   }
 
   moveLeft() {
     this.x -= grid
     this.animate = 1
     this.position = 2
+    this.jump.play()
   }
 
   moveRight() {
     this.x += grid
     this.animate = 2
     this.position = 1
+    this.jump.play()
   }
 
   moveUpPlayer2() {
     this.y -= grid
     this.animate2 = 1
     this.position2 = 1
+    this.jump.play()
   }
 
   moveDownPlayer2() {
     this.y += grid
     this.animate2 = 1
     this.position2 = 0
+    this.jump.play()
   }
 
   moveLeftPlayer2() {
     this.x -= grid
     this.animate2 = 1
     this.position2 = 2
+    this.jump.play()
   }
 
   moveRightPlayer2() {
     this.x += grid
     this.animate2 = 2
     this.position2 = 3
+    this.jump.play()
   }
 
-  attach() {
-    if (this.y < canvas.height - 300) {
-      let ok = false
-      enemies.forEach((enemy) => {
-        if (this.isTouching(enemy)) {
-          ok = true
-          attached = enemy
-          if (attached !== null) {
-            this.x = attached.x
-          }
-        } else {
-        }
-      })
-    } else if (this.y > canvas.height - 300) {
-      enemies.forEach((enemy) => {
-        if (this.isTouching(enemy)) {
-          this.x = this.intialPos[0]
-          this.y = this.intialPos[1]
-          // this.audio.play()
-        }
-      })
-    }
-  }
-
-  attachBack() {
-    if (this.y < canvas.height - 300) {
-      let ok = false
-      leftEnemies.forEach((enemy) => {
-        if (this.isTouching(enemy)) {
-          ok = true
-          attached = enemy
-          if (attached !== null) {
-            this.x = attached.x
-          }
-        }
-      })
-    } else if (this.y > canvas.height - 300) {
-      leftEnemies.forEach((enemy) => {
-        if (this.isTouching(enemy)) {
-          this.x = this.intialPos[0]
-          this.y = this.intialPos[1]
-          // this.audio.play()
-        }
-      })
-    }
+  resetPosition() {
+    this.x = this.intialPos[0]
+    this.y = this.intialPos[1]
+    this.audio.play()
   }
 }
 
-//ENEMY CLASS
-
-class Enemy extends Square {
-  constructor(x, y, width, height, speed, image) {
-    super(x, y, width, height)
-    this.speed = speed
+class ToiletPaper {
+  constructor(x, y, image) {
+    this.x = x
+    this.y = y
+    this.width = 30
+    this.height = 50
     this.image = new Image()
-    this.image.src = image
+    this.image.src = images.toiletPaper
   }
 
   draw() {
+    context.drawImage(this.image, this.x, this.y, this.width, this.height)
+  }
+}
+
+class Virus {
+  constructor(x, y, image, speed) {
+    this.x = x
+    this.y = y
+    this.width = 60
+    this.height = 30
+    this.image = new Image()
+    this.image.src = image
+    this.speed = speed
+  }
+
+  drawRightToLeft() {
+    this.x -= this.speed
+    if (this.x < -canvas.width) this.x = canvas.width + grid
+    context.drawImage(this.image, this.x, this.y, this.width, this.height)
+  }
+
+  drawLeftToRight() {
     this.x += this.speed
     if (this.x > canvas.width) this.x = -canvas.width
     context.drawImage(this.image, this.x, this.y, this.width, this.height)
   }
+}
 
-  drawBack() {
+class Pill {
+  constructor(x, y, image, speed) {
+    this.x = x
+    this.y = y
+    this.width = 60
+    this.height = 30
+    this.image = new Image()
+    this.image.src = image
+    this.speed = speed
+  }
+
+  drawRightToLeft() {
+    this.x -= this.speed
+    if (this.x < -canvas.width) this.x = canvas.width
+    context.drawImage(this.image, this.x, this.y, this.width, this.height)
+  }
+
+  drawLeftToRight() {
     this.x += this.speed
-    if (this.x < -canvas.width) this.x = canvas.width + grid
+    if (this.x > canvas.width) this.x = -canvas.width
     context.drawImage(this.image, this.x, this.y, this.width, this.height)
   }
 }
@@ -234,147 +235,318 @@ class Enemy extends Square {
 const background = new Background()
 const person = new Person(300, 573, grid - 3, grid - 3, 'sprite1')
 const person2 = new Person(200, 573, grid - 3, grid - 3, 'sprite2')
+const toilet = new ToiletPaper(200, 2, images.toiletPaper)
+const toilet2 = new ToiletPaper(300, 2, images.toiletPaper)
+const toilet3 = new ToiletPaper(400, 2, images.toiletPaper)
 
-function generateEnemies() {
-  const random = Math.floor(Math.random() * lanes.length)
-  for (let i = 0; i < totalRows; i++) {
-    if (i === 1 || i === 10 || i === 19 || i === 20) {
-      continue
-    } else if (frames % 250 === 0) {
-      enemies.push(
-        new Enemy(0 - grid, canvas.height - lanes[random], grid * 2, grid, 0.3, images.virus)
-      )
-    }
+//VIRUS INSTANCES
+const _1virus1 = new Virus(canvas.width / 4, canvas.height - 60, images.virus, 1.7)
+const _2virus1 = new Virus(canvas.width / 2, canvas.height - 60, images.virus, 1.7)
+const _3virus1 = new Virus(canvas.width * (3 / 4), canvas.height - 60, images.virus, 1.7)
+const _1virus2 = new Virus(canvas.width / 4, canvas.height - 90, images.virus, 2.1)
+const _2virus2 = new Virus(canvas.width / 2, canvas.height - 90, images.virus, 2.1)
+const _3virus2 = new Virus(canvas.width * (3 / 4), canvas.height - 90, images.virus, 2.1)
+const _1virus3 = new Virus(canvas.width / 4, canvas.height - 120, images.virus, 1.5)
+const _2virus3 = new Virus(canvas.width / 2, canvas.height - 120, images.virus, 1.5)
+const _3virus3 = new Virus(canvas.width * (3 / 4), canvas.height - 120, images.virus, 1.5)
+const _1virus4 = new Virus(canvas.width / 4, canvas.height - 150, images.virus, 1)
+const _2virus4 = new Virus(canvas.width / 2, canvas.height - 150, images.virus, 1)
+const _3virus4 = new Virus(canvas.width * (3 / 4), canvas.height - 150, images.virus, 1)
+const _1virus5 = new Virus(canvas.width / 4, canvas.height - 180, images.virus, 2)
+const _2virus5 = new Virus(canvas.width / 2, canvas.height - 180, images.virus, 2)
+const _3virus5 = new Virus(canvas.width * (3 / 4), canvas.height - 180, images.virus, 2)
+const _1virus6 = new Virus(canvas.width / 4, canvas.height - 210, images.virus, 1.6)
+const _2virus6 = new Virus(canvas.width / 2, canvas.height - 210, images.virus, 1.6)
+const _3virus6 = new Virus(canvas.width * (3 / 4), canvas.height - 210, images.virus, 1.6)
+const _1virus7 = new Virus(canvas.width / 4, canvas.height - 240, images.virus, 1.2)
+const _2virus7 = new Virus(canvas.width / 2, canvas.height - 240, images.virus, 1.2)
+const _3virus7 = new Virus(canvas.width * (3 / 4), canvas.height - 240, images.virus, 1.2)
+const _1virus8 = new Virus(canvas.width / 4, canvas.height - 270, images.virus, 1.3)
+const _2virus8 = new Virus(canvas.width / 2, canvas.height - 270, images.virus, 1.3)
+const _3virus8 = new Virus(canvas.width * (3 / 4), canvas.height - 270, images.virus, 1.3)
+
+//PILLS INSTANC(E
+const _1pill1 = new Pill(canvas.width / 4, canvas.height - 330, images.pill, 0.5)
+const _2pill1 = new Pill(canvas.width / 2, canvas.height - 330, images.pill, 0.5)
+const _3pill1 = new Pill(canvas.width * (3 / 4), canvas.height - 330, images.pill, 0.5)
+const _1pill2 = new Pill(canvas.width / 4, canvas.height - 360, images.pill, 0.3)
+const _2pill2 = new Pill(canvas.width / 2, canvas.height - 360, images.pill, 0.3)
+const _3pill2 = new Pill(canvas.width * (3 / 4), canvas.height - 360, images.pill, 0.3)
+const _1pill3 = new Pill(canvas.width / 4, canvas.height - 390, images.pill, 0.4)
+const _2pill3 = new Pill(canvas.width / 2, canvas.height - 390, images.pill, 0.4)
+const _3pill3 = new Pill(canvas.width * (3 / 4), canvas.height - 390, images.pill, 0.4)
+const _1pill4 = new Pill(canvas.width / 4, canvas.height - 420, images.pill, 0.5)
+const _2pill4 = new Pill(canvas.width / 2, canvas.height - 420, images.pill, 0.5)
+const _3pill4 = new Pill(canvas.width * (3 / 4), canvas.height - 420, images.pill, 0.5)
+const _1pill5 = new Pill(canvas.width / 4, canvas.height - 450, images.pill, 0.6)
+const _2pill5 = new Pill(canvas.width / 2, canvas.height - 450, images.pill, 0.6)
+const _3pill5 = new Pill(canvas.width * (3 / 4), canvas.height - 450, images.pill, 0.6)
+const _1pill6 = new Pill(canvas.width / 4, canvas.height - 480, images.pill, 0.7)
+const _2pill6 = new Pill(canvas.width / 2, canvas.height - 480, images.pill, 0.7)
+const _3pill6 = new Pill(canvas.width * (3 / 4), canvas.height - 480, images.pill, 0.7)
+const _1pill7 = new Pill(canvas.width / 4, canvas.height - 510, images.pill, 0.8)
+const _2pill7 = new Pill(canvas.width / 2, canvas.height - 510, images.pill, 0.8)
+const _3pill7 = new Pill(canvas.width * (3 / 4), canvas.height - 510, images.pill, 0.8)
+const _1pill8 = new Pill(canvas.width / 4, canvas.height - 540, images.pill, 0.9)
+const _2pill8 = new Pill(canvas.width / 2, canvas.height - 540, images.pill, 0.9)
+const _3pill8 = new Pill(canvas.width * (3 / 4), canvas.height - 540, images.pill, 0.9)
+
+function update() {
+  frames++
+  context.clearRect(0, 0, canvas.width, canvas.height)
+  background.drawBg()
+  themeSong.play()
+  _1virus1.drawLeftToRight()
+  _2virus1.drawLeftToRight()
+  _3virus1.drawLeftToRight()
+  _1virus2.drawRightToLeft()
+  _2virus2.drawRightToLeft()
+  _3virus2.drawRightToLeft()
+  _1virus3.drawLeftToRight()
+  _2virus3.drawLeftToRight()
+  _3virus3.drawLeftToRight()
+  _1virus4.drawRightToLeft()
+  _2virus4.drawRightToLeft()
+  _3virus4.drawRightToLeft()
+  _1virus5.drawLeftToRight()
+  _2virus5.drawLeftToRight()
+  _3virus5.drawLeftToRight()
+  _1virus6.drawRightToLeft()
+  _2virus6.drawRightToLeft()
+  _3virus6.drawRightToLeft()
+  _1virus7.drawLeftToRight()
+  _2virus7.drawLeftToRight()
+  _3virus7.drawLeftToRight()
+  _1virus8.drawRightToLeft()
+  _2virus8.drawRightToLeft()
+  _3virus8.drawRightToLeft()
+  _1pill1.drawRightToLeft()
+  _2pill1.drawRightToLeft()
+  _3pill1.drawRightToLeft()
+  _1pill2.drawLeftToRight()
+  _2pill2.drawLeftToRight()
+  _3pill2.drawLeftToRight()
+  _1pill3.drawRightToLeft()
+  _2pill3.drawRightToLeft()
+  _3pill3.drawRightToLeft()
+  _1pill4.drawLeftToRight()
+  _2pill4.drawLeftToRight()
+  _3pill4.drawLeftToRight()
+  _1pill5.drawRightToLeft()
+  _2pill5.drawRightToLeft()
+  _3pill5.drawRightToLeft()
+  _1pill6.drawLeftToRight()
+  _2pill6.drawLeftToRight()
+  _3pill6.drawLeftToRight()
+  _1pill7.drawRightToLeft()
+  _2pill7.drawRightToLeft()
+  _3pill7.drawRightToLeft()
+  _1pill8.drawLeftToRight()
+  _2pill8.drawLeftToRight()
+  _3pill8.drawLeftToRight()
+  drawToiletPaper()
+  checkIfPlayerOnPill()
+  checkIfPlayer2OnPill()
+  checkCollisionVirus()
+  checkProgressCount1()
+  checkProgressCount2()
+  checkWinPerson1()
+  checkWinPerson2()
+  person.drawPerson()
+  person2.drawPerson()
+  pills.forEach((pill) => {
+    if (person.isTouching(pills)) onPill = true
+  })
+  if (checkInfectedPerson()) person.resetPosition()
+  if (checkInfectedPerson2()) person2.resetPosition()
+  if (person.x < 0 || person.x > canvas.width + grid) {
+    person.resetPosition()
   }
-
-  enemies.forEach((enemy, index) => {
-    if (enemy.x >= canvas.width) {
-      enemies.splice(index, 20)
-    }
-  })
-}
-
-function generateEnemiesTopRight() {
-  const random = Math.floor(Math.random() * topRightLanes.length)
-  for (let i = 0; i < totalRows; i++) {
-    if (i === 1 || i === 10 || i === 19 || i === 20) {
-      continue
-    } else if (frames % 250 === 0) {
-      topRightEnemies.push(
-        new Enemy(0 - grid, canvas.height - topRightLanes[random], grid * 2, grid, 0.3, images.pill)
-      )
-    }
+  if (person2.x < 0 || person2.x > canvas.width + grid) {
+    person2.resetPosition()
   }
-
-  topRightEnemies.forEach((enemy, index) => {
-    if (enemy.x >= canvas.width) {
-      topRightEnemies.splice(index, 20)
-    }
-  })
-}
-
-//RIGHT TO LEFT
-
-function generateEnemiesBack() {
-  const random = Math.floor(Math.random() * leftLanes.length)
-  for (let i = 0; i < totalRows; i++) {
-    if (i === 1 || i === 10 || i === 19 || i === 20) {
-      continue
-    } else if (frames % 250 === 0) {
-      leftEnemies.push(
-        new Enemy(
-          canvas.width + grid,
-          canvas.height - leftLanes[random],
-          grid * 2,
-          grid,
-          -0.3,
-          images.virus
-        )
-      )
-    }
+  if (frames % 42 === 0) {
+    person.animate++
+    if (person.animate === 4) person.animate = 0
   }
-
-  leftEnemies.forEach((en, index, arr0) => {
-    if (en.x + en.width < -canvas.width) {
-      leftEnemies.splice(index, 20)
-    }
-  })
-}
-
-function generateEnemiesTopLeft() {
-  const random = Math.floor(Math.random() * topLeftLanes.length)
-  for (let i = 0; i < totalRows; i++) {
-    if (i === 1 || i === 10 || i === 19 || i === 20) {
-      continue
-    } else if (frames % 250 === 0) {
-      topLeftEnemies.push(
-        new Enemy(
-          canvas.width + grid,
-          canvas.height - topLeftLanes[random],
-          grid * 2,
-          grid,
-          -0.3,
-          images.pill
-        )
-      )
-    }
+  if (frames % 42 === 0) {
+    person2.animate2++
+    if (person2.animate2 === 4) person2.animate2 = 0
   }
+}
+interval = setInterval(update, 60 / 1000)
 
-  topLeftEnemies.forEach((enemy, index) => {
-    if (enemy.x < -canvas.width) {
-      topLeftEnemies.splice(index, 20)
+function drawToiletPaper() {
+  switch (person.lives) {
+    case 3:
+      toilet.draw()
+      toilet2.draw()
+      toilet3.draw()
+      break
+    case 2:
+      toilet.draw()
+      toilet2.draw()
+      break
+    case 1:
+      toilet2.draw()
+      break
+  }
+}
+
+function generateVirus() {
+  viruses.push(
+    _1virus1,
+    _2virus1,
+    _3virus1,
+    _1virus2,
+    _2virus2,
+    _3virus2,
+    _1virus3,
+    _2virus3,
+    _3virus3,
+    _1virus4,
+    _2virus4,
+    _3virus4,
+    _1virus5,
+    _2virus5,
+    _3virus5,
+    _1virus6,
+    _2virus6,
+    _3virus6,
+    _1virus7,
+    _2virus7,
+    _3virus7,
+    _1virus8,
+    _2virus8,
+    _3virus8
+  )
+}
+generateVirus()
+
+function generatePills() {
+  pills.push(
+    _1pill1,
+    _2pill1,
+    _3pill1,
+    _1pill2,
+    _2pill2,
+    _3pill2,
+    _1pill3,
+    _2pill3,
+    _3pill3,
+    _1pill4,
+    _2pill4,
+    _3pill4,
+    _1pill5,
+    _2pill5,
+    _3pill5,
+    _1pill6,
+    _2pill6,
+    _3pill6,
+    _1pill7,
+    _2pill7,
+    _3pill7,
+    _1pill8,
+    _2pill8,
+    _3pill8
+  )
+}
+generatePills()
+
+let countPerson1 = 0
+let countPerson2 = 0
+
+function winnerPerson1() {
+  context.font = '60px Mexcellent-Regular'
+  context.fillStyle = 'white'
+  context.fillText('Player1 Wins!', 150, 300)
+  themeSong.pause()
+  cheer.play()
+  clearInterval(interval)
+}
+
+function winnerPerson2() {
+  context.font = '60px Mexcellent-Regular'
+  context.fillStyle = 'yellow'
+  context.fillText('Player2 Wins!', 150, 300)
+  themeSong.pause()
+  cheer.play()
+  clearInterval(interval)
+}
+
+function checkProgressCount1() {
+  if (person.y < canvas.height - 570) {
+    countPerson1++
+    person.lives--
+    person.x = person.intialPos[0]
+    person.y = person.intialPos[1]
+  }
+}
+
+function checkProgressCount2() {
+  if (person2.y < canvas.height - 570) {
+    countPerson2++
+    person.lives--
+    person2.x = person2.intialPos[0]
+    person2.y = person2.intialPos[1]
+  }
+}
+
+function checkWinPerson1() {
+  if (countPerson1 == 2) winnerPerson1()
+}
+
+function checkWinPerson2() {
+  if (countPerson2 == 2) winnerPerson2()
+}
+
+function checkCollisionVirus() {
+  viruses.forEach((virus) => {
+    if (person.isTouching(virus)) {
+      person.resetPosition()
+    }
+    if (person2.isTouching(virus)) {
+      person2.resetPosition()
     }
   })
 }
 
-function drawEnemy() {
-  enemies.forEach((enemy) => {
-    enemy.draw()
-  })
+function personJumpOn(item) {
+  person.x = item.x
+  person.y = item.y
 }
 
-function drawTopRightEnemy() {
-  topRightEnemies.forEach((enemy) => {
-    enemy.draw()
-    if (person.isTouching(enemy)) {
-      p1JumpOn(enemy)
-      console.log('touching')
-    }
-    if (person2.isTouching(enemy)) {
-      p2JumpOn(enemy)
-      console.log('Touching')
-    }
-  })
+function person2JumpOn(item) {
+  person2.x = item.x
+  person2.y = item.y
 }
 
-function drawEnemyBack() {
-  leftEnemies.forEach((enemy) => {
-    enemy.drawBack()
-  })
-}
-
-function drawTopLeftEnemy() {
-  topLeftEnemies.forEach((enemy) => {
-    enemy.drawBack()
-    if (person.isTouching(enemy)) {
-      p1JumpOn(enemy)
-    }
-    if (person2.isTouching(enemy)) {
-      p2JumpOn(enemy)
+function checkIfPlayerOnPill() {
+  pills.forEach((pill) => {
+    if (person.isTouching(pill)) {
+      personJumpOn(pill)
+      onPill = true
     }
   })
 }
 
-function resetGamePlayer1() {
-  let audio = new Audio('./assets/Untitled-[AudioTrimmer.com] (1).mp3')
-  audio.play()
-  person.x = 300
-  person.y = 573
+function checkIfPlayer2OnPill() {
+  pills.forEach((pill) => {
+    if (person2.isTouching(pill)) {
+      person2JumpOn(pill)
+      onPill = true
+    }
+  })
 }
 
-function resetGamePlayer2() {
-  person2.x = 200
-  person2.y = 573
+function checkInfectedPerson() {
+  let infected = person.y <= 330 && person.y >= 540
+  return !onPill && infected
+}
+
+function checkInfectedPerson2() {
+  let infected = person2.y <= 330 && person2.y >= 540
+  return !onPill && infected
 }
 
 function p1JumpOn(other) {
@@ -387,70 +559,6 @@ function p2JumpOn(other) {
   person2.y = other.y
 }
 
-function update() {
-  frames++
-  context.clearRect(0, 0, canvas.width, canvas.height)
-  background.drawBg()
-  generateEnemiesBack()
-  generateEnemies()
-  generateEnemiesTopLeft()
-  generateEnemiesTopRight()
-  drawEnemy()
-  drawEnemyBack()
-  drawTopLeftEnemy()
-  drawTopRightEnemy()
-  person.attach()
-  person.attachBack()
-  person2.attach()
-  person2.attachBack()
-  person.drawPerson()
-  person2.drawPerson()
-  if (frames % 42 === 0) {
-    person.animate++
-    if (person.animate === 4) person.animate = 0
-  }
-  if (frames % 42 === 0) {
-    person2.animate2++
-    if (person2.animate2 === 4) person2.animate2 = 0
-  }
-  topLeftEnemies.forEach((enemy) => {
-    if (!person.isTouching(enemy)) {
-      if (person.y < canvas.height - 570) {
-        person.x = person.intialPos[0]
-        person.y = person.intialPos[1]
-      }
-    }
-  })
-  topRightEnemies.forEach((enemy) => {
-    if (!person.isTouching(enemy)) {
-      if (person.y < canvas.height - 570) {
-        person.x = person.intialPos[0]
-        person.y = person.intialPos[1]
-      }
-    }
-  })
-  leftEnemies.forEach((enemy) => {
-    if (!person2.isTouching(enemy)) {
-      if (person2.y < canvas.height - 570) {
-        person2.x = person2.intialPos[0]
-        person2.y = person2.intialPos[1]
-      }
-    }
-  })
-  enemies.forEach((enemy) => {
-    if (!person2.isTouching(enemy)) {
-      if (person2.y < canvas.height - 570) {
-        person2.x = person2.intialPos[0]
-        person2.y = person2.intialPos[1]
-      }
-    }
-  })
-
-  // if((person.x < 0) || (person.x > canvas.width))
-}
-
-setInterval(update, 60 / 1000)
-
 window.addEventListener('keydown', ({ keyCode }) => {
   switch (keyCode) {
     case 38:
@@ -458,13 +566,24 @@ window.addEventListener('keydown', ({ keyCode }) => {
       break
     case 40:
       person.moveDown()
-      // person.animateDown()
       break
     case 37:
       person.moveLeft()
+      if (onPill) {
+        if (person.y < canvas.height - 300 && person.y > canvas.height - 570) {
+          onPill = false
+          person.resetPosition()
+        }
+      }
       break
     case 39:
       person.moveRight()
+      if (onPill) {
+        if (person.y < canvas.height - 300 && person.y > canvas.height - 570) {
+          onPill = false
+          person.resetPosition()
+        }
+      }
       break
   }
 
@@ -477,79 +596,21 @@ window.addEventListener('keydown', ({ keyCode }) => {
       break
     case 65:
       person2.moveLeftPlayer2()
+      if (onPill) {
+        if (person2.y < canvas.height - 300 && person2.y > canvas.height - 570) {
+          onPill = false
+          person2.resetPosition()
+        }
+      }
       break
     case 68:
       person2.moveRightPlayer2()
+      if (onPill) {
+        if (person2.y < canvas.height - 300 && person2.y > canvas.height - 570) {
+          onPill = false
+          person2.resetPosition()
+        }
+      }
       break
   }
 })
-
-// class Row {
-//   constructor(lane) {
-//     this.x = 0
-//     this.y = canvas.height - this.lane
-//     this.width = canvas.width
-//     this.height = grid
-//     // this.speed = speed
-//     this.lane = lane
-//   }
-
-//   draw() {
-//     for (let i = 0; i < enemies.length; i++) {
-//       context.fillStyle = 'blue'
-//       context.fillRect(this.x, this.y, this.width, this.height)
-//     }
-//   }
-// }
-
-//MAIN FUNCTIONS
-
-// const lane = lanes.forEach((lane) => lane)
-
-// function generateSpeed() {
-//   if (frames % 100 === 0) {
-//     randomSpeed = Math.floor(Math.random() * 3) + 1
-//   }
-// }
-
-// function checkCrash() {
-//   enemies.forEach((enemy) => {
-//     if (person.isTouching(enemy)) {
-//       resetGame()
-//     }
-//   })
-// }
-
-// function checkCrashBack() {
-//   leftEnemies.forEach((enemy) => {
-//     if (person.isTouching(enemy)) {
-//       resetGame()
-//     }
-//   })
-// }
-
-// function checkAttach() {
-//   if (person.y < canvas.height - 300) {
-//     let ok = false
-//     enemies.forEach((enemy) => {
-//       if (person.isTouching(enemy)) {
-//         ok = true
-//         person.attach(attached)
-//       }
-//     })
-//   }
-// }
-
-// const row = new Row(generateLane())
-// const enemy = new Enemy(0, canvas.height - grid * 2, grid * 2, grid, 1)
-
-// context.fillStyle = 'Yellow'
-// context.fillRect(0, canvas.height - 600, canvas.width, grid)
-// context.fillRect(0, canvas.height - 570, canvas.width, grid)
-// context.fillRect(0, canvas.height - 300, canvas.width, grid)
-// context.fillRect(0, canvas.height - 30, canvas.width, grid)
-
-// context.drawImage(grass, 0, canvas.height - 600, canvas.width, grid)
-// context.drawImage(grass, 0, canvas.height - 570, canvas.width, grid)
-// context.drawImage(grass, 0, canvas.height - 300, canvas.width, grid)
-// context.drawImage(grass, 0, canvas.height - 30, canvas.width, grid)
